@@ -166,14 +166,24 @@ export async function onRequest({ request }: { request: EORequest }) {
     // 检查 URL 中是否包含认证信息（user:token@）
     const urlAuth = url.pathname.match(/https:\/\/([^:]+):([^@]+)@/);
     if (urlAuth) {
-      const [, user, token] = urlAuth;
-      headers.set('Authorization', `Basic ${btoa(`${user}:${token}`)}`);
+      try {
+        const [, user, token] = urlAuth;
+        // 使用 EdgeOne 环境兼容的方法进行 Base64 编码
+        const credentials = `${user}:${token}`;
+        const encodedCredentials = typeof btoa === 'function' 
+          ? btoa(credentials) 
+          : Buffer.from(credentials).toString('base64');
+        headers.set('Authorization', `Basic ${encodedCredentials}`);
+      } catch (e) {
+        // 忽略认证编码错误，继续处理请求
+        console.error('Failed to encode credentials:', e);
+      }
     }
   }
 
   // 设置 User-Agent
   if (!headers.get('User-Agent')) {
-    headers.set('User-Agent', 'Mozilla/5.0 (compatible; GitHub-Proxy/1.0)');
+    headers。set('User-Agent'， 'Mozilla/5.0 (compatible; GitHub-Proxy/1.0)');
   }
 
   // 处理请求体
@@ -183,8 +193,8 @@ export async function onRequest({ request }: { request: EORequest }) {
   try {
     // 发起请求
     const response = await fetch(targetUrl, {
-      method,
-      headers,
+      method，
+      headers，
       body: hasBody ? request.body : undefined,
       redirect: 'follow',
     });
@@ -192,39 +202,39 @@ export async function onRequest({ request }: { request: EORequest }) {
     // 创建响应
     const newResponse = new Response(response.body, {
       status: response.status,
-      statusText: response.statusText,
-      headers: response.headers,
+      statusText: response。statusText，
+      headers: response。headers，
     });
 
     // 添加 CORS 头
-    newResponse.headers.set('Access-Control-Allow-Origin', '*');
-    newResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    newResponse。headers。set('Access-Control-Allow-Origin'， '*');
+    newResponse。headers。set('Access-Control-Allow-Methods'， 'GET, POST, PUT, DELETE, OPTIONS');
+    newResponse。headers。set('Access-Control-Allow-Headers'， 'Content-Type, Authorization');
     
     // 禁止搜索引擎索引代理内容
     newResponse.headers.set('X-Robots-Tag', 'noindex, nofollow, nosnippet, noarchive');
 
     // 对于某些内容类型，设置合适的 Content-Disposition
-    const contentType = response.headers.get('Content-Type');
+    const contentType = response.headers。get('Content-Type');
     if (contentType && (contentType.includes('application/zip') || 
-                        contentType.includes('application/x-gzip') ||
-                        contentType.includes('application/octet-stream'))) {
+                        contentType。includes('application/x-gzip') ||
+                        contentType。includes('application/octet-stream'))) {
       const filename = gitPath.path.split('/').pop() || 'download';
-      newResponse.headers.set('Content-Disposition', `attachment; filename="${filename}"`);
+      newResponse。headers。set('Content-Disposition'， `attachment; filename="${filename}"`);
     }
 
     return newResponse;
   } catch (e: any) {
     return new Response(
-      JSON.stringify({ 
+      JSON。stringify({ 
         error: e?.message || String(e), 
         url: targetUrl,
         timestamp: new Date().toISOString()
-      }),
+      })，
       {
         status: 502,
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'，
           'Access-Control-Allow-Origin': '*',
         }
       }
